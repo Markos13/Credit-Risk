@@ -103,3 +103,23 @@ y = df_clean["default"].copy()
 
 #print("Features (X):", X.shape)
 #print("Target (y):", y.shape)
+
+
+df_dates = pd.read_csv(
+    "loan_2014_18.csv",
+    usecols=["issue_d"]
+)
+
+'''print(df_dates["issue_d"].head(20))
+print(df_dates["issue_d"].dtype)
+print(df_dates["issue_d"].dropna().unique()[:20])'''
+
+
+df_clean["issue_d"] = pd.to_datetime(
+    df_dates.loc[df_clean.index, "issue_d"],
+    format="%Y-%m-%d",
+    errors="coerce"
+)
+
+print("Earliest loan:", df_clean["issue_d"].min())
+print("Latest loan:", df_clean["issue_d"].max())
