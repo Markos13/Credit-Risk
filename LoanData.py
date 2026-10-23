@@ -169,3 +169,30 @@ plt.savefig(
 
 plt.close()
 
+# Each year's loans-repayment time(36 or 60 months) in percentage 
+term_distribution = pd.crosstab(
+    df_clean["issue_year"],
+    df_clean["term"],
+    normalize="index"
+) * 100
+
+print(term_distribution.round(2))
+
+
+
+# Use the original dataset, before filtering statuses
+df["issue_d"] = pd.to_datetime(
+    df["issue_d"],
+    format="%Y-%m-%d",
+    errors="coerce"
+)
+
+df["issue_year"] = df["issue_d"].dt.year
+
+status_by_year = pd.crosstab(
+    df["issue_year"],
+    df["loan_status"],
+    normalize="index"
+) * 100
+
+print(status_by_year.round(2).to_string())
