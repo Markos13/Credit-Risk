@@ -3,8 +3,7 @@ import matplotlib.pyplot as plt
 
 
 df = pd.read_csv(
-    "loan_2014_18.csv",
-    low_memory=False
+    "loan_2014_18.csv"
 )
 
 valid_status = [
@@ -23,4 +22,4 @@ df_clean["default"] = df_clean["loan_status"].map({
     "Default": 1
 })
 
-print('hello')
+print('hello man')
