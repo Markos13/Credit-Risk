@@ -1,5 +1,6 @@
 import pandas as pd
 import matplotlib.pyplot as plt
+from pathlib import Path
 
 
 df = pd.read_csv(
@@ -121,5 +122,20 @@ df_clean["issue_d"] = pd.to_datetime(
     errors="coerce"
 )
 
-print("Earliest loan:", df_clean["issue_d"].min())
-print("Latest loan:", df_clean["issue_d"].max())
+#print("Earliest loan:", df_clean["issue_d"].min())
+#print("Latest loan:", df_clean["issue_d"].max())
+
+
+# Extract the year of loan issuance
+df_clean["issue_year"] = df_clean["issue_d"].dt.year
+
+# Calculate yearly loan statistics
+yearly_summary = df_clean.groupby("issue_year")["default"].agg(
+    total_loans="count",
+    total_defaults="sum",
+    default_rate="mean"
+)
+
+yearly_summary["default_rate"] *= 100
+
+print(yearly_summary)
