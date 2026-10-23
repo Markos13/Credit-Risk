@@ -69,3 +69,8 @@ df_model = df_clean.drop(
     columns=leakage_cols,
     errors="ignore"
 ).copy()
+
+
+# 2. Calculate missing percentage for each feature
+missing_pct = df_model.isnull().mean() * 100
+
