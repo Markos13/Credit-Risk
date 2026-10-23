@@ -96,3 +96,10 @@ df_filtered = df_model[features_to_keep].copy()
 # 6. Print dataset shapes
 #print("\nDataset shape before filtering:", df_model.shape)
 #print("Dataset shape after filtering:", df_filtered.shape)
+
+
+X = df_filtered.copy()
+y = df_clean["default"].copy()
+
+#print("Features (X):", X.shape)
+#print("Target (y):", y.shape)
