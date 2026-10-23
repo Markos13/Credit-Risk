@@ -79,3 +79,9 @@ missing_pct = df_model.isnull().mean() * 100
 excluded_features = missing_pct[missing_pct > 30].sort_values(
     ascending=False
 )
+
+
+# 4. Keep only features with <=30% missing values
+features_to_keep = missing_pct[missing_pct <= 30].index
+
+df_filtered = df_model[features_to_keep].copy()
