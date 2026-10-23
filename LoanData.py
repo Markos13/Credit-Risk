@@ -62,3 +62,10 @@ leakage_cols = [
     "url",
     "Unnamed: 0"
 ]
+
+
+# Remove leakage features and identifiers
+df_model = df_clean.drop(
+    columns=leakage_cols,
+    errors="ignore"
+).copy()
