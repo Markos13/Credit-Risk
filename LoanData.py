@@ -85,3 +85,14 @@ excluded_features = missing_pct[missing_pct > 30].sort_values(
 features_to_keep = missing_pct[missing_pct <= 30].index
 
 df_filtered = df_model[features_to_keep].copy()
+
+
+# 5. Print excluded features
+#print("\nFeatures excluded due to >30% missing values:")
+#rint(excluded_features.to_string())
+
+#print("\nNumber of features excluded:", len(excluded_features))
+
+# 6. Print dataset shapes
+#print("\nDataset shape before filtering:", df_model.shape)
+#print("Dataset shape after filtering:", df_filtered.shape)
