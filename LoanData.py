@@ -139,3 +139,33 @@ yearly_summary = df_clean.groupby("issue_year")["default"].agg(
 yearly_summary["default_rate"] *= 100
 
 print(yearly_summary)
+
+
+
+plt.figure(figsize=(10, 5))
+
+plt.plot(
+    yearly_summary.index,
+    yearly_summary["default_rate"],
+    marker="o"
+)
+
+plt.xlabel("Loan Issuance Year")
+plt.ylabel("Observed Default Rate (%)")
+plt.title("Observed Default Rate by Loan Issuance Year")
+plt.grid(alpha=0.3)
+
+
+plt.xticks(yearly_summary.index.astype(int))
+plt.tight_layout()
+
+Path("reports/figures").mkdir(parents=True, exist_ok=True)
+
+plt.savefig(
+    "reports/figures/default_rate_by_year.png",
+    dpi=300,
+    bbox_inches="tight"
+)
+
+plt.close()
+
