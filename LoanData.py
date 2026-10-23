@@ -74,3 +74,8 @@ df_model = df_clean.drop(
 # 2. Calculate missing percentage for each feature
 missing_pct = df_model.isnull().mean() * 100
 
+
+# 3. Identify features with more than 30% missing values
+excluded_features = missing_pct[missing_pct > 30].sort_values(
+    ascending=False
+)
