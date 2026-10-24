@@ -71,7 +71,15 @@ leakage_cols = [
     "default",
     "id",
     "url",
-    "Unnamed: 0"
+    "Unnamed: 0",
+    "pymnt_plan",
+    "debt_settlement_flag_date",
+    "settlement_status",
+    "settlement_date",
+    "settlement_amount",
+    "settlement_percentage",
+    "settlement_term",
+    "funded_amnt_inv"
 ]
 
 
