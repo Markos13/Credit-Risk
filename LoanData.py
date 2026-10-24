@@ -72,21 +72,6 @@ df_model = df_clean.drop(
 ).copy()
 
 
-# 2. Calculate missing percentage for each feature
-missing_pct = df_model.isnull().mean() * 100
-
-
-# 3. Identify features with more than 30% missing values
-excluded_features = missing_pct[missing_pct > 30].sort_values(
-    ascending=False
-)
-
-
-# 4. Keep only features with <=30% missing values
-features_to_keep = missing_pct[missing_pct <= 30].index
-
-df_filtered = df_model[features_to_keep].copy()
-
 
 # 5. Print excluded features
 #print("\nFeatures excluded due to >30% missing values:")
@@ -98,9 +83,6 @@ df_filtered = df_model[features_to_keep].copy()
 #print("\nDataset shape before filtering:", df_model.shape)
 #print("Dataset shape after filtering:", df_filtered.shape)
 
-
-X = df_filtered.copy()
-y = df_clean["default"].copy()
 
 #print("Features (X):", X.shape)
 #print("Target (y):", y.shape)
@@ -197,120 +179,3 @@ status_by_year = pd.crosstab(
 
 print(status_by_year.round(2).to_string())
 
-'''
-
-# Make sure X and y correspond to the same loans
-assert X.index.equals(y.index)
-
-# Get loan issuance dates
-issue_dates = df_clean.loc[X.index, "issue_d"]
-
-# Verify dates
-#print("Missing issue dates:", issue_dates.isna().sum())
-
-assert issue_dates.notna().all()
-
-# Create chronological masks
-train_mask = issue_dates < "2017-01-01"
-
-val_mask = (
-    (issue_dates >= "2017-01-01") &
-    (issue_dates < "2018-01-01")
-)
-
-test_mask = (
-    (issue_dates >= "2018-01-01") &
-    (issue_dates < "2019-01-01")
-)
-
-# Split features
-X_train = X.loc[train_mask].copy()
-X_val = X.loc[val_mask].copy()
-X_test = X.loc[test_mask].copy()
-
-# Split target
-y_train = y.loc[train_mask].copy()
-y_val = y.loc[val_mask].copy()
-y_test = y.loc[test_mask].copy()
-
-for dataset in [X_train, X_val, X_test]:
-    dataset.drop(
-        columns=["issue_d", "issue_year"],
-        errors="ignore",
-        inplace=True
-    )
-
-
-print("TRAINING")
-print("Shape:", X_train.shape)
-print("Default rate:", round(y_train.mean() * 100, 2), "%")
-
-print("\nVALIDATION")
-print("Shape:", X_val.shape)
-print("Default rate:", round(y_val.mean() * 100, 2), "%")
-
-print("\nTESTING")
-print("Shape:", X_test.shape)
-print("Default rate:", round(y_test.mean() * 100, 2), "%")
-
-
-total_split = len(X_train) + len(X_val) + len(X_test)
-
-print("\nTotal original observations:", len(X))
-print("Total observations after splitting:", total_split)
-print("Unassigned observations:", len(X) - total_split)
-
-
-# Search for potentially useful date and outcome columns
-date_status_cols = [
-    col for col in df.columns
-    if any(keyword in col.lower() for keyword in [
-        "date", "_d", "status", "dpd", "payment"
-    ])
-]
-
-print(date_status_cols)
-
-print(df["loan_status"].value_counts())
-print(df["term"].value_counts())
-
-
-df["last_pymnt_d"] = pd.to_datetime(
-    df["last_pymnt_d"],
-    format="%b-%Y",
-    errors="coerce"
-)
-
-print("Latest payment:", df["last_pymnt_d"].max())
-
-print(
-    df.groupby("issue_year")["last_pymnt_d"]
-    .max()
-)
-
-'''
-
-# Keep only 36-month loans
-df_36 = df[
-    df["term"].str.strip() == "36 months"
-].copy()
-
-# Identify resolved loans
-df_36["resolved"] = df_36["loan_status"].isin([
-    "Fully Paid",
-    "Charged Off",
-    "Default"
-])
-
-# Calculate resolution rates by issuance year
-resolution_summary = df_36.groupby("issue_year")["resolved"].agg(
-    total_loans="count",
-    resolved_loans="sum",
-    resolved_rate="mean"
-)
-
-resolution_summary["unresolved_pct"] = (
-    100 * (1 - resolution_summary["resolved_rate"])
-)
-
-print(resolution_summary.round(2))
