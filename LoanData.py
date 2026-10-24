@@ -197,7 +197,7 @@ df_model = df_clean.drop(
 #print("Remaining features:", df_model.shape[1])
 
 
-df_clean["earliest_cr_line"] = pd.to_datetime(
+'''df_clean["earliest_cr_line"] = pd.to_datetime(
     df_clean["earliest_cr_line"],
     format="%m-%d-%y",
     errors="coerce"
@@ -211,4 +211,24 @@ invalid_credit_dates = (
 print(
     "Credit history dates after loan issuance:",
     invalid_credit_dates
+)'''
+
+
+# Select 36-month loans issued between 2014 and 2016
+eligible_mask = (
+    (df_clean["term"].str.strip() == "36 months") &
+    (df_clean["issue_year"].between(2014, 2016))
 )
+
+# Keep the selected loans
+df_selected = df_clean.loc[eligible_mask].copy()
+
+# Select corresponding model features
+X = df_model.loc[df_selected.index].copy()
+
+# Select corresponding target
+y = df_selected["default"].copy()
+
+print("Selected loans:", len(df_selected))
+print("Features:", X.shape)
+print("Target:", y.shape)
