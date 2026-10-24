@@ -17,6 +17,8 @@ df["issue_d"] = pd.to_datetime(
 
 df["issue_year"] = df["issue_d"].dt.year
 
+print("Missing issuance dates:", df["issue_d"].isna().sum())
+
 valid_status = [
     "Fully Paid",
     "Charged Off",
@@ -91,38 +93,6 @@ df_model = df_clean.drop(
 
 
 
-# 5. Print excluded features
-#print("\nFeatures excluded due to >30% missing values:")
-#rint(excluded_features.to_string())
-
-#print("\nNumber of features excluded:", len(excluded_features))
-
-# 6. Print dataset shapes
-#print("\nDataset shape before filtering:", df_model.shape)
-#print("Dataset shape after filtering:", df_filtered.shape)
-
-
-#print("Features (X):", X.shape)
-#print("Target (y):", y.shape)
-
-
-'''print(df_dates["issue_d"].head(20))
-print(df_dates["issue_d"].dtype)
-print(df_dates["issue_d"].dropna().unique()[:20])'''
-
-
-df_clean["issue_d"] = pd.to_datetime(
-    df_dates.loc[df_clean.index, "issue_d"],
-    format="%Y-%m-%d",
-    errors="coerce"
-)
-
-#print("Earliest loan:", df_clean["issue_d"].min())
-#print("Latest loan:", df_clean["issue_d"].max())
-
-
-# Extract the year of loan issuance
-df_clean["issue_year"] = df_clean["issue_d"].dt.year
 
 # Calculate yearly loan statistics
 yearly_summary = df_clean.groupby("issue_year")["default"].agg(
@@ -133,6 +103,8 @@ yearly_summary = df_clean.groupby("issue_year")["default"].agg(
 
 yearly_summary["default_rate"] *= 100
 
+
+print("\nYearly default statistics:")
 print(yearly_summary)
 
 
@@ -171,18 +143,10 @@ term_distribution = pd.crosstab(
     normalize="index"
 ) * 100
 
-#print(term_distribution.round(2))
 
+print("\nLoan term distribution:")
+print(term_distribution.round(2))
 
-
-# Use the original dataset, before filtering statuses
-df["issue_d"] = pd.to_datetime(
-    df["issue_d"],
-    format="%Y-%m-%d",
-    errors="coerce"
-)
-
-df["issue_year"] = df["issue_d"].dt.year
 
 status_by_year = pd.crosstab(
     df["issue_year"],
@@ -190,5 +154,44 @@ status_by_year = pd.crosstab(
     normalize="index"
 ) * 100
 
+
+print("\nLoan status by year:")
 print(status_by_year.round(2).to_string())
 
+print("\nRemaining feature count:", df_model.shape[1])
+
+print("\nRemaining columns:")
+for col in df_model.columns:
+    print(col)
+
+
+additional_exclusions = [
+    # Underwriting and funding information
+    "funded_amnt",
+    "int_rate",
+    "installment",
+    "grade",
+    "sub_grade",
+    "initial_list_status",
+    "verification_status",
+    "verification_status_joint",
+
+    # Dates used for chronological splitting
+    "issue_d",
+    "issue_year",
+
+    # High-cardinality or unnecessary variables
+    "emp_title",
+    "title",
+    "zip_code",
+    "policy_code",
+    
+]
+
+df_model = df_clean.drop(
+    columns=leakage_cols + additional_exclusions,
+    errors="ignore"
+).copy()
+
+
+print("Remaining features:", df_model.shape[1])
