@@ -7,6 +7,16 @@ df = pd.read_csv(
     "loan_2014_18.csv"
 )
 
+
+df["issue_d"] = pd.to_datetime(
+    df["issue_d"],
+    format="%Y-%m-%d",
+    errors="coerce"
+)
+
+
+df["issue_year"] = df["issue_d"].dt.year
+
 valid_status = [
     "Fully Paid",
     "Charged Off",
@@ -87,11 +97,6 @@ df_model = df_clean.drop(
 #print("Features (X):", X.shape)
 #print("Target (y):", y.shape)
 
-
-df_dates = pd.read_csv(
-    "loan_2014_18.csv",
-    usecols=["issue_d"]
-)
 
 '''print(df_dates["issue_d"].head(20))
 print(df_dates["issue_d"].dtype)
