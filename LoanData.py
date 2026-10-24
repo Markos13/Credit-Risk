@@ -155,14 +155,14 @@ status_by_year = pd.crosstab(
 ) * 100
 
 
-print("\nLoan status by year:")
+'''print("\nLoan status by year:")
 print(status_by_year.round(2).to_string())
 
 print("\nRemaining feature count:", df_model.shape[1])
 
 print("\nRemaining columns:")
 for col in df_model.columns:
-    print(col)
+    print(col)'''
 
 
 additional_exclusions = [
@@ -194,4 +194,21 @@ df_model = df_clean.drop(
 ).copy()
 
 
-print("Remaining features:", df_model.shape[1])
+#print("Remaining features:", df_model.shape[1])
+
+
+df_clean["earliest_cr_line"] = pd.to_datetime(
+    df_clean["earliest_cr_line"],
+    format="%m-%d-%y",
+    errors="coerce"
+)
+
+invalid_credit_dates = (
+    df_clean["earliest_cr_line"] >
+    df_clean["issue_d"]
+).sum()
+
+print(
+    "Credit history dates after loan issuance:",
+    invalid_credit_dates
+)
