@@ -4,7 +4,8 @@ from pathlib import Path
 
 
 df = pd.read_csv(
-    "loan_2014_18.csv"
+    "loan_2014_18.csv",
+    low_memory=False
 )
 
 
@@ -318,7 +319,7 @@ X_test = X_test[features_to_keep].copy()
 # 13. Verify feature selection
 # ========================================
 
-print("\nExcluded features (>30% missing in training):")
+'''print("\nExcluded features (>30% missing in training):")
 print(excluded_features.to_string())
 
 print("\nNumber of excluded features:", len(excluded_features))
@@ -326,4 +327,27 @@ print("\nNumber of excluded features:", len(excluded_features))
 print("\nDataset shapes after filtering:")
 print("Training:", X_train.shape)
 print("Validation:", X_val.shape)
-print("Testing:", X_test.shape)
+print("Testing:", X_test.shape)'''
+
+
+# ========================================
+# 14. Inspect remaining feature types
+# ========================================
+
+print("\nRemaining feature data types:")
+print(X_train.dtypes.to_string())
+
+print("\nRemaining missing values (%):")
+print(
+    (X_train.isna().mean() * 100)
+    .sort_values(ascending=False)
+    .round(2)
+    .to_string()
+)
+
+print("\nCategorical and date columns:")
+print(
+    X_train.select_dtypes(
+        include=["object", "category", "datetime"]
+    ).columns.tolist()
+)
