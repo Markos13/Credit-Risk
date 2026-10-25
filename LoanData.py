@@ -17,7 +17,7 @@ df["issue_d"] = pd.to_datetime(
 
 df["issue_year"] = df["issue_d"].dt.year
 
-print("Missing issuance dates:", df["issue_d"].isna().sum())
+#print("Missing issuance dates:", df["issue_d"].isna().sum())
 
 valid_status = [
     "Fully Paid",
@@ -104,8 +104,8 @@ yearly_summary = df_clean.groupby("issue_year")["default"].agg(
 yearly_summary["default_rate"] *= 100
 
 
-print("\nYearly default statistics:")
-print(yearly_summary)
+#print("\nYearly default statistics:")
+#print(yearly_summary)
 
 
 
@@ -144,8 +144,8 @@ term_distribution = pd.crosstab(
 ) * 100
 
 
-print("\nLoan term distribution:")
-print(term_distribution.round(2))
+#print("\nLoan term distribution:")
+#print(term_distribution.round(2))
 
 
 status_by_year = pd.crosstab(
@@ -271,7 +271,7 @@ y_test = y.loc[test_mask].copy()
 # 11. Verify the split
 # ========================================
 
-print("\nDataset shapes:")
+'''print("\nDataset shapes:")
 
 print("Training:", X_train.shape)
 print("Validation:", X_val.shape)
@@ -288,4 +288,42 @@ print("\nMissing target values:", y.isna().sum())
 print("\nOverlapping indexes:")
 print("Train / Validation:", len(X_train.index.intersection(X_val.index)))
 print("Train / Test:", len(X_train.index.intersection(X_test.index)))
-print("Validation / Test:", len(X_val.index.intersection(X_test.index)))
+print("Validation / Test:", len(X_val.index.intersection(X_test.index)))'''
+
+
+# ========================================
+# 12. Missing-value analysis
+# ========================================
+
+# Calculate missing percentages using TRAINING data only
+missing_pct = X_train.isna().mean() * 100
+
+# Identify features with more than 30% missing values
+excluded_features = missing_pct[
+    missing_pct > 30
+].sort_values(ascending=False)
+
+# Identify features to keep
+features_to_keep = missing_pct[
+    missing_pct <= 30
+].index
+
+# Apply the SAME feature selection to all datasets
+X_train = X_train[features_to_keep].copy()
+X_val = X_val[features_to_keep].copy()
+X_test = X_test[features_to_keep].copy()
+
+
+# ========================================
+# 13. Verify feature selection
+# ========================================
+
+print("\nExcluded features (>30% missing in training):")
+print(excluded_features.to_string())
+
+print("\nNumber of excluded features:", len(excluded_features))
+
+print("\nDataset shapes after filtering:")
+print("Training:", X_train.shape)
+print("Validation:", X_val.shape)
+print("Testing:", X_test.shape)
