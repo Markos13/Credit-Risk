@@ -449,10 +449,43 @@ categorical_cols = X_train.select_dtypes(
     include=["object", "str", "category"]
 ).columns.tolist()
 
-print("\nNumerical features:", len(numeric_cols))
+'''print("\nNumerical features:", len(numeric_cols))
 print("Categorical features:", len(categorical_cols))
 
 print("\nCategorical columns:")
-print(categorical_cols)
+print(categorical_cols)'''
 
 assert len(numeric_cols) + len(categorical_cols) == X_train.shape[1]
+
+
+
+# ========================================
+# 20. Numerical preprocessing
+# ========================================
+
+numeric_transformer = Pipeline(steps=[
+    ("imputer", SimpleImputer(strategy="median")),
+    ("scaler", StandardScaler())
+])
+
+
+# ========================================
+# 21. Categorical preprocessing
+# ========================================
+
+categorical_transformer = Pipeline(steps=[
+    ("imputer", SimpleImputer(strategy="most_frequent")),
+    ("encoder", OneHotEncoder(handle_unknown="ignore"))
+])
+
+
+# ========================================
+# 22. Combine preprocessing
+# ========================================
+
+preprocessor = ColumnTransformer(
+    transformers=[
+        ("num", numeric_transformer, numeric_cols),
+        ("cat", categorical_transformer, categorical_cols)
+    ]
+)
