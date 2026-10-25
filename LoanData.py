@@ -330,7 +330,7 @@ for dataset in [X_train, X_val, X_test]:
 # 15. Verify feature selection
 # ========================================
 
-print("\nExcluded features (>30% missing in training):")
+'''print("\nExcluded features (>30% missing in training):")
 print(excluded_features.to_string())
 
 print("\nNumber of excluded features:", len(excluded_features))
@@ -360,4 +360,53 @@ print(
     X_train.select_dtypes(
         include=["object", "str", "category", "datetime"]
     ).columns.tolist()
+)'''
+
+
+# ========================================
+# 17. Pearson correlation analysis
+# ========================================
+
+# Select numerical features from TRAINING data only
+numeric_features = X_train.select_dtypes(
+    include="number"
 )
+
+# Calculate correlations between features and default
+target_corr = numeric_features.corrwith(y_train)
+
+# Sort by absolute correlation strength
+target_corr = target_corr.reindex(
+    target_corr.abs().sort_values(ascending=False).index
+)
+
+print("\nPearson correlation with default:")
+print(target_corr.round(4).to_string())
+
+
+# ========================================
+# 18. Highly correlated feature pairs
+# ========================================
+
+import numpy as np
+
+# Calculate feature correlation matrix
+corr_matrix = numeric_features.corr().abs()
+
+# Keep only upper triangle to avoid duplicates
+upper_triangle = corr_matrix.where(
+    np.triu(
+        np.ones(corr_matrix.shape),
+        k=1
+    ).astype(bool)
+)
+
+# Find feature pairs with correlation > 0.90
+high_corr_pairs = (
+    upper_triangle.stack()
+    .loc[lambda x: x > 0.90]
+    .sort_values(ascending=False)
+)
+
+print("\nHighly correlated feature pairs:")
+print(high_corr_pairs.to_string())
