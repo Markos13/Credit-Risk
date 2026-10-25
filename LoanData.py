@@ -229,6 +229,63 @@ X = df_model.loc[df_selected.index].copy()
 # Select corresponding target
 y = df_selected["default"].copy()
 
-print("Selected loans:", len(df_selected))
+'''print("Selected loans:", len(df_selected))
 print("Features:", X.shape)
-print("Target:", y.shape)
+print("Target:", y.shape)'''
+
+
+# ========================================
+# 9. Select eligible loans
+# ========================================
+
+eligible_mask = (
+    (df_clean["term"].str.strip() == "36 months") &
+    (df_clean["issue_year"].between(2014, 2016))
+)
+
+df_selected = df_clean.loc[eligible_mask].copy()
+
+# Model features and target
+X = df_model.loc[df_selected.index].copy()
+y = df_selected["default"].copy()
+
+
+# ========================================
+# 10. Chronological split
+# ========================================
+
+train_mask = df_selected["issue_year"] == 2014
+val_mask = df_selected["issue_year"] == 2015
+test_mask = df_selected["issue_year"] == 2016
+
+X_train = X.loc[train_mask].copy()
+X_val = X.loc[val_mask].copy()
+X_test = X.loc[test_mask].copy()
+
+y_train = y.loc[train_mask].copy()
+y_val = y.loc[val_mask].copy()
+y_test = y.loc[test_mask].copy()
+
+
+# ========================================
+# 11. Verify the split
+# ========================================
+
+print("\nDataset shapes:")
+
+print("Training:", X_train.shape)
+print("Validation:", X_val.shape)
+print("Testing:", X_test.shape)
+
+print("\nDefault rates:")
+
+print("Training:", round(y_train.mean() * 100, 2), "%")
+print("Validation:", round(y_val.mean() * 100, 2), "%")
+print("Testing:", round(y_test.mean() * 100, 2), "%")
+
+print("\nMissing target values:", y.isna().sum())
+
+print("\nOverlapping indexes:")
+print("Train / Validation:", len(X_train.index.intersection(X_val.index)))
+print("Train / Test:", len(X_train.index.intersection(X_test.index)))
+print("Validation / Test:", len(X_val.index.intersection(X_test.index)))
