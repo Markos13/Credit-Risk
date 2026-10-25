@@ -186,6 +186,7 @@ additional_exclusions = [
     "title",
     "zip_code",
     "policy_code",
+    "term",
     
 ]
 
@@ -334,7 +335,7 @@ print("Testing:", X_test.shape)'''
 # 14. Inspect remaining feature types
 # ========================================
 
-print("\nRemaining feature data types:")
+'''print("\nRemaining feature data types:")
 print(X_train.dtypes.to_string())
 
 print("\nRemaining missing values (%):")
@@ -348,6 +349,35 @@ print(
 print("\nCategorical and date columns:")
 print(
     X_train.select_dtypes(
-        include=["object", "category", "datetime"]
+        include=["object", "str", "category", "datetime"]
     ).columns.tolist()
-)
+)'''
+
+
+# ========================================
+# 15. Credit history length
+# ========================================
+
+for dataset in [X_train, X_val, X_test]:
+
+    credit_date = pd.to_datetime(
+        dataset["earliest_cr_line"],
+        format="%b-%Y",
+        errors="coerce"
+    )
+
+    issue_date = df_clean.loc[dataset.index, "issue_d"]
+
+    dataset["credit_history_months"] = (
+        (issue_date.dt.year - credit_date.dt.year) * 12
+        + (issue_date.dt.month - credit_date.dt.month)
+    )
+
+    dataset = dataset.drop(columns=["earliest_cr_line"])
+
+
+    for dataset in [X_train, X_val, X_test]:
+        dataset["revol_util"] = pd.to_numeric(
+            dataset["revol_util"].astype("string").str.replace("%", "", regex=False),
+            errors="coerce"
+        )
