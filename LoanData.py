@@ -380,8 +380,8 @@ target_corr = target_corr.reindex(
     target_corr.abs().sort_values(ascending=False).index
 )
 
-print("\nPearson correlation with default:")
-print(target_corr.round(4).to_string())
+#print("\nPearson correlation with default:")
+#print(target_corr.round(4).to_string())
 
 
 # ========================================
@@ -408,5 +408,25 @@ high_corr_pairs = (
     .sort_values(ascending=False)
 )
 
-print("\nHighly correlated feature pairs:")
-print(high_corr_pairs.to_string())
+#print("\nHighly correlated feature pairs:")
+#print(high_corr_pairs.to_string())
+
+
+# ========================================
+# 18. Remove redundant features
+# ========================================
+
+redundant_features = [
+    "fico_range_high",
+    "num_sats",
+    "num_rev_tl_bal_gt_0"
+]
+
+X_train = X_train.drop(columns=redundant_features)
+X_val = X_val.drop(columns=redundant_features)
+X_test = X_test.drop(columns=redundant_features)
+
+print("\nShapes after removing redundant features:")
+print("Training:", X_train.shape)
+print("Validation:", X_val.shape)
+print("Testing:", X_test.shape)
