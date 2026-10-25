@@ -86,14 +86,6 @@ leakage_cols = [
 ]
 
 
-# Remove leakage features and identifiers
-df_model = df_clean.drop(
-    columns=leakage_cols,
-    errors="ignore"
-).copy()
-
-
-
 
 # Calculate yearly loan statistics
 yearly_summary = df_clean.groupby("issue_year")["default"].agg(
@@ -216,25 +208,6 @@ print(
 )'''
 
 
-# Select 36-month loans issued between 2014 and 2016
-eligible_mask = (
-    (df_clean["term"].str.strip() == "36 months") &
-    (df_clean["issue_year"].between(2014, 2016))
-)
-
-# Keep the selected loans
-df_selected = df_clean.loc[eligible_mask].copy()
-
-# Select corresponding model features
-X = df_model.loc[df_selected.index].copy()
-
-# Select corresponding target
-y = df_selected["default"].copy()
-
-'''print("Selected loans:", len(df_selected))
-print("Features:", X.shape)
-print("Target:", y.shape)'''
-
 
 # ========================================
 # 9. Select eligible loans
@@ -316,11 +289,48 @@ X_val = X_val[features_to_keep].copy()
 X_test = X_test[features_to_keep].copy()
 
 
+
 # ========================================
-# 13. Verify feature selection
+# 14. Feature transformations
 # ========================================
 
-'''print("\nExcluded features (>30% missing in training):")
+for dataset in [X_train, X_val, X_test]:
+
+    # Convert earliest credit line date
+    credit_date = pd.to_datetime(
+        dataset["earliest_cr_line"],
+        format="%b-%Y",
+        errors="coerce"
+    )
+
+    # Get each loan's issuance date
+    issue_date = df_clean.loc[dataset.index, "issue_d"]
+
+    # Calculate credit history length in months
+    dataset["credit_history_months"] = (
+        (issue_date.dt.year - credit_date.dt.year) * 12
+        + (issue_date.dt.month - credit_date.dt.month)
+    )
+
+
+    # Remove original date column
+    del dataset["earliest_cr_line"]
+
+
+    # Convert revolving utilization to numeric
+    dataset["revol_util"] = pd.to_numeric(
+        dataset["revol_util"]
+        .astype("string")
+        .str.replace("%", "", regex=False),
+        errors="coerce"
+    )
+
+
+# ========================================
+# 15. Verify feature selection
+# ========================================
+
+print("\nExcluded features (>30% missing in training):")
 print(excluded_features.to_string())
 
 print("\nNumber of excluded features:", len(excluded_features))
@@ -328,14 +338,13 @@ print("\nNumber of excluded features:", len(excluded_features))
 print("\nDataset shapes after filtering:")
 print("Training:", X_train.shape)
 print("Validation:", X_val.shape)
-print("Testing:", X_test.shape)'''
-
+print("Testing:", X_test.shape)
 
 # ========================================
-# 14. Inspect remaining feature types
+# 16. Inspect remaining feature types
 # ========================================
 
-'''print("\nRemaining feature data types:")
+print("\nRemaining feature data types:")
 print(X_train.dtypes.to_string())
 
 print("\nRemaining missing values (%):")
@@ -351,33 +360,4 @@ print(
     X_train.select_dtypes(
         include=["object", "str", "category", "datetime"]
     ).columns.tolist()
-)'''
-
-
-# ========================================
-# 15. Credit history length
-# ========================================
-
-for dataset in [X_train, X_val, X_test]:
-
-    credit_date = pd.to_datetime(
-        dataset["earliest_cr_line"],
-        format="%b-%Y",
-        errors="coerce"
-    )
-
-    issue_date = df_clean.loc[dataset.index, "issue_d"]
-
-    dataset["credit_history_months"] = (
-        (issue_date.dt.year - credit_date.dt.year) * 12
-        + (issue_date.dt.month - credit_date.dt.month)
-    )
-
-    dataset = dataset.drop(columns=["earliest_cr_line"])
-
-
-    for dataset in [X_train, X_val, X_test]:
-        dataset["revol_util"] = pd.to_numeric(
-            dataset["revol_util"].astype("string").str.replace("%", "", regex=False),
-            errors="coerce"
-        )
+)
