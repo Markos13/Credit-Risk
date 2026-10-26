@@ -194,9 +194,8 @@ additional_exclusions = [
     "title",
     "zip_code",
     "policy_code",
-    "term",
-    "application_type"
-
+    "term"
+    
 ]
 
 df_model = df_clean.drop(
@@ -792,4 +791,58 @@ plt.savefig(
 plt.close()
 
 
+# ========================================
+# 31. Logistic regression coefficients
+# ========================================
+
+feature_names = preprocessor.get_feature_names_out()
+
+coefficients = pd.DataFrame({
+    "feature": feature_names,
+    "coefficient": log_reg.coef_[0]
+})
+
+coefficients["abs_coefficient"] = (
+    coefficients["coefficient"].abs()
+)
+
+coefficients = coefficients.sort_values(
+    "abs_coefficient",
+    ascending=False
+)
+
+'''print("\n=== Top 20 Logistic Regression Coefficients ===")
+print(
+    coefficients.head(20).to_string(index=False)
+)
+
+print("\n=== Top 10 Features Increasing Default Risk ===")
+print(
+    coefficients.sort_values(
+        "coefficient",
+        ascending=False
+    ).head(10).to_string(index=False)
+)
+
+print("\n=== Top 10 Features Decreasing Default Risk ===")
+print(
+    coefficients.sort_values(
+        "coefficient",
+        ascending=True
+    ).head(10).to_string(index=False)
+)'''
+
+
+print("\nApplication type distribution in training:")
+print(X_train["application_type"].value_counts(dropna=False))
+
+print("\nApplication type distribution in validation:")
+print(X_val["application_type"].value_counts(dropna=False))
+
+print("\nApplication type categories learned:")
+print(
+    preprocessor.named_transformers_["cat"]
+    .named_steps["encoder"]
+    .categories_[categorical_cols.index("application_type")]
+)
 
