@@ -503,29 +503,16 @@ preprocessor = ColumnTransformer(
 )
 
 
-# ========================================
-# Check constant features in training data
-# ========================================
-
-unique_counts = X_train.nunique(dropna=False)
-
-constant_features = unique_counts[unique_counts <= 1]
-
-print("\n=== Constant Features in Training ===")
-print(constant_features.to_string())
-
-print("\nNumber of constant features:", len(constant_features))
-
 
 # ========================================
 # 23. Fit and transform
 # ========================================
 
-'''X_train_processed = preprocessor.fit_transform(X_train)
+X_train_processed = preprocessor.fit_transform(X_train)
 
 X_val_processed = preprocessor.transform(X_val)
 
-print("\nProcessed dataset shapes:")
+'''print("\nProcessed dataset shapes:")
 print("Training:", X_train_processed.shape)
 print("Validation:", X_val_processed.shape)
 
@@ -540,7 +527,7 @@ print(
 print(
     "Validation:",
     np.isnan(X_val_processed).sum()
-)
+)'''
 
 
 
@@ -759,6 +746,7 @@ print("\n=== Threshold Comparison ===")
 print(threshold_results.round(4).to_string(index=False))
 
 
+
 # ========================================
 # 30. Calibration analysis
 # ========================================
@@ -803,46 +791,5 @@ plt.savefig(
 
 plt.close()
 
-
-# ========================================
-# 31. Logistic regression coefficients
-# ========================================
-
-feature_names = preprocessor.get_feature_names_out()
-
-coefficients = pd.DataFrame({
-    "feature": feature_names,
-    "coefficient": log_reg.coef_[0]
-})
-
-coefficients["abs_coefficient"] = (
-    coefficients["coefficient"].abs()
-)
-
-coefficients = coefficients.sort_values(
-    "abs_coefficient",
-    ascending=False
-)
-
-print("\n=== Top 20 Logistic Regression Coefficients ===")
-print(
-    coefficients.head(20).to_string(index=False)
-)
-
-print("\n=== Top 10 Features Increasing Default Risk ===")
-print(
-    coefficients.sort_values(
-        "coefficient",
-        ascending=False
-    ).head(10).to_string(index=False)
-)
-
-print("\n=== Top 10 Features Decreasing Default Risk ===")
-print(
-    coefficients.sort_values(
-        "coefficient",
-        ascending=True
-    ).head(10).to_string(index=False)
-)'''
 
 
