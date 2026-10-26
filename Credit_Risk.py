@@ -194,7 +194,8 @@ additional_exclusions = [
     "title",
     "zip_code",
     "policy_code",
-    "term"
+    "term",
+    "application_type"
     
 ]
 
@@ -607,7 +608,7 @@ from sklearn.metrics import (
 )
 
 # Convert probabilities into binary predictions
-threshold = 0.5
+threshold = 0.15
 
 y_val_pred = (y_val_proba >= threshold).astype(int)
 
@@ -615,7 +616,7 @@ y_val_pred = (y_val_proba >= threshold).astype(int)
 cm = confusion_matrix(y_val, y_val_pred, labels=[0, 1])
 
 # Keep terminal output unchanged
-print("\n=== Confusion Matrix (Threshold = 0.50) ===")
+print("\n=== Confusion Matrix (Threshold = 0.15) ===")
 print(cm)
 
 # Classification report
@@ -704,7 +705,7 @@ plt.savefig(
 plt.close(fig)
 
 
-
+'''
 # ========================================
 # 29. Compare classification thresholds
 # ========================================
@@ -742,7 +743,7 @@ for threshold in thresholds:
 threshold_results = pd.DataFrame(results)
 
 print("\n=== Threshold Comparison ===")
-print(threshold_results.round(4).to_string(index=False))
+print(threshold_results.round(4).to_string(index=False))'''
 
 
 
@@ -790,7 +791,7 @@ plt.savefig(
 
 plt.close()
 
-
+'''
 # ========================================
 # 31. Logistic regression coefficients
 # ========================================
@@ -811,7 +812,7 @@ coefficients = coefficients.sort_values(
     ascending=False
 )
 
-'''print("\n=== Top 20 Logistic Regression Coefficients ===")
+print("\n=== Top 20 Logistic Regression Coefficients ===")
 print(
     coefficients.head(20).to_string(index=False)
 )
@@ -830,7 +831,7 @@ print(
         "coefficient",
         ascending=True
     ).head(10).to_string(index=False)
-)'''
+)
 
 
 print("\nApplication type distribution in training:")
@@ -844,5 +845,5 @@ print(
     preprocessor.named_transformers_["cat"]
     .named_steps["encoder"]
     .categories_[categorical_cols.index("application_type")]
-)
+)'''
 
