@@ -489,3 +489,31 @@ preprocessor = ColumnTransformer(
         ("cat", categorical_transformer, categorical_cols)
     ]
 )
+
+
+
+# ========================================
+# 23. Fit and transform
+# ========================================
+
+X_train_processed = preprocessor.fit_transform(X_train)
+
+X_val_processed = preprocessor.transform(X_val)
+
+print("\nProcessed dataset shapes:")
+print("Training:", X_train_processed.shape)
+print("Validation:", X_val_processed.shape)
+
+print("\nMissing values after preprocessing:")
+
+import numpy as np
+
+print(
+    "Training:",
+    np.isnan(X_train_processed).sum()
+)
+
+print(
+    "Validation:",
+    np.isnan(X_val_processed).sum()
+)
