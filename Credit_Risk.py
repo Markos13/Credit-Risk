@@ -6,6 +6,13 @@ from sklearn.pipeline import Pipeline
 from sklearn.impute import SimpleImputer
 from sklearn.preprocessing import StandardScaler, OneHotEncoder
 from pathlib import Path
+from sklearn.linear_model import LogisticRegression
+from sklearn.metrics import (
+    roc_auc_score,
+    average_precision_score,
+    brier_score_loss,
+    log_loss,
+)
 
 
 df = pd.read_csv(
@@ -506,9 +513,8 @@ print("Validation:", X_val_processed.shape)
 
 print("\nMissing values after preprocessing:")
 
-import numpy as np
 
-print(
+'''print(
     "Training:",
     np.isnan(X_train_processed).sum()
 )
@@ -516,4 +522,22 @@ print(
 print(
     "Validation:",
     np.isnan(X_val_processed).sum()
+)'''
+
+
+
+# ========================================
+# 24. Train logistic regression baseline
+# ========================================
+
+log_reg = LogisticRegression(
+    max_iter=1000,
+    solver="lbfgs",
+    C=1.0,
+    random_state=42
 )
+
+log_reg.fit(X_train_processed, y_train)
+
+print("\nLogistic regression training completed.")
+print("Iterations used:", log_reg.n_iter_[0])
