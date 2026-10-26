@@ -7,6 +7,7 @@ from sklearn.impute import SimpleImputer
 from sklearn.preprocessing import StandardScaler, OneHotEncoder
 from pathlib import Path
 from sklearn.linear_model import LogisticRegression
+from sklearn.calibration import calibration_curve
 from sklearn.metrics import (
     roc_auc_score,
     average_precision_score,
@@ -194,7 +195,8 @@ additional_exclusions = [
     "zip_code",
     "policy_code",
     "term",
-    
+    "application_type"
+
 ]
 
 df_model = df_clean.drop(
@@ -501,16 +503,29 @@ preprocessor = ColumnTransformer(
 )
 
 
+# ========================================
+# Check constant features in training data
+# ========================================
+
+unique_counts = X_train.nunique(dropna=False)
+
+constant_features = unique_counts[unique_counts <= 1]
+
+print("\n=== Constant Features in Training ===")
+print(constant_features.to_string())
+
+print("\nNumber of constant features:", len(constant_features))
+
 
 # ========================================
 # 23. Fit and transform
 # ========================================
 
-X_train_processed = preprocessor.fit_transform(X_train)
+'''X_train_processed = preprocessor.fit_transform(X_train)
 
 X_val_processed = preprocessor.transform(X_val)
 
-'''print("\nProcessed dataset shapes:")
+print("\nProcessed dataset shapes:")
 print("Training:", X_train_processed.shape)
 print("Validation:", X_val_processed.shape)
 
@@ -525,7 +540,7 @@ print(
 print(
     "Validation:",
     np.isnan(X_val_processed).sum()
-)'''
+)
 
 
 
@@ -606,7 +621,7 @@ from sklearn.metrics import (
 )
 
 # Convert probabilities into binary predictions
-threshold = 0.50
+threshold = 0.5
 
 y_val_pred = (y_val_proba >= threshold).astype(int)
 
@@ -684,6 +699,7 @@ ax.set_title(
     pad=15
 )
 
+
 # Draw borders between cells
 ax.set_xticks([0.5], minor=True)
 ax.set_yticks([0.5], minor=True)
@@ -700,3 +716,133 @@ plt.savefig(
 )
 
 plt.close(fig)
+
+
+
+# ========================================
+# 29. Compare classification thresholds
+# ========================================
+
+from sklearn.metrics import precision_score, recall_score, f1_score
+
+thresholds = [0.10, 0.15, 0.20, 0.25, 0.30, 0.40, 0.50]
+
+results = []
+
+for threshold in thresholds:
+
+    predictions = (y_val_proba >= threshold).astype(int)
+
+    tn, fp, fn, tp = confusion_matrix(
+        y_val, predictions
+    ).ravel()
+
+    results.append({
+        "Threshold": threshold,
+        "Precision": precision_score(
+            y_val, predictions, zero_division=0
+        ),
+        "Recall": recall_score(
+            y_val, predictions, zero_division=0
+        ),
+        "F1": f1_score(
+            y_val, predictions, zero_division=0
+        ),
+        "False Positives": fp,
+        "False Negatives": fn,
+        "Loans Flagged (%)": predictions.mean() * 100
+    })
+
+threshold_results = pd.DataFrame(results)
+
+print("\n=== Threshold Comparison ===")
+print(threshold_results.round(4).to_string(index=False))
+
+
+# ========================================
+# 30. Calibration analysis
+# ========================================
+
+
+fraction_of_positives, mean_predicted_value = calibration_curve(
+    y_val,
+    y_val_proba,
+    n_bins=10,
+    strategy="quantile"
+)
+
+plt.figure(figsize=(8, 6))
+
+plt.plot(
+    mean_predicted_value,
+    fraction_of_positives,
+    marker="o",
+    label="Logistic Regression"
+)
+
+plt.plot(
+    [0, 1],
+    [0, 1],
+    linestyle="--",
+    color="gray",
+    label="Perfect Calibration"
+)
+
+plt.xlabel("Mean Predicted Default Probability")
+plt.ylabel("Observed Default Rate")
+plt.title("Calibration Curve - 2015 Validation")
+plt.legend()
+plt.grid(alpha=0.3)
+plt.tight_layout()
+
+plt.savefig(
+    "reports/figures/calibration_curve_2015.png",
+    dpi=300,
+    bbox_inches="tight"
+)
+
+plt.close()
+
+
+# ========================================
+# 31. Logistic regression coefficients
+# ========================================
+
+feature_names = preprocessor.get_feature_names_out()
+
+coefficients = pd.DataFrame({
+    "feature": feature_names,
+    "coefficient": log_reg.coef_[0]
+})
+
+coefficients["abs_coefficient"] = (
+    coefficients["coefficient"].abs()
+)
+
+coefficients = coefficients.sort_values(
+    "abs_coefficient",
+    ascending=False
+)
+
+print("\n=== Top 20 Logistic Regression Coefficients ===")
+print(
+    coefficients.head(20).to_string(index=False)
+)
+
+print("\n=== Top 10 Features Increasing Default Risk ===")
+print(
+    coefficients.sort_values(
+        "coefficient",
+        ascending=False
+    ).head(10).to_string(index=False)
+)
+
+print("\n=== Top 10 Features Decreasing Default Risk ===")
+print(
+    coefficients.sort_values(
+        "coefficient",
+        ascending=True
+    ).head(10).to_string(index=False)
+)'''
+
+
