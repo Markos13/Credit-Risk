@@ -12,6 +12,9 @@ from sklearn.metrics import (
     average_precision_score,
     brier_score_loss,
     log_loss,
+    confusion_matrix,
+    ConfusionMatrixDisplay,
+    classification_report
 )
 
 
@@ -588,3 +591,112 @@ print(f"Log Loss:          {logloss:.4f}")
 
 print(f"\nActual default rate:    {y_val.mean():.4f}")
 print(f"Mean predicted default: {y_val_proba.mean():.4f}")
+
+
+
+# ========================================
+# 28. Confusion matrix
+# ========================================
+
+import matplotlib.pyplot as plt
+from matplotlib.colors import ListedColormap
+from sklearn.metrics import (
+    confusion_matrix,
+    classification_report
+)
+
+# Convert probabilities into binary predictions
+threshold = 0.50
+
+y_val_pred = (y_val_proba >= threshold).astype(int)
+
+# Calculate confusion matrix
+cm = confusion_matrix(y_val, y_val_pred, labels=[0, 1])
+
+# Keep terminal output unchanged
+print("\n=== Confusion Matrix (Threshold = 0.50) ===")
+print(cm)
+
+# Classification report
+print("\n=== Classification Report ===")
+print(
+    classification_report(
+        y_val,
+        y_val_pred,
+        target_names=["Fully Paid", "Default"],
+        zero_division=0
+    )
+)
+
+# ========================================
+# Visualize confusion matrix
+# ========================================
+
+fig, ax = plt.subplots(figsize=(8, 6))
+
+# Different color for each cell
+colors = ListedColormap([
+    "#B7E4C7",  # TN - Green
+    "#FFD6A5",  # FP - Orange
+    "#FFADAD",  # FN - Red
+    "#A0C4FF"   # TP - Blue
+])
+
+# Assign colors independently of confusion matrix values
+color_positions = [
+    [0, 1],
+    [2, 3]
+]
+
+ax.imshow(color_positions, cmap=colors, vmin=0, vmax=3)
+
+# Cell labels
+labels = [
+    ["TN", "FP"],
+    ["FN", "TP"]
+]
+
+for i in range(2):
+    for j in range(2):
+        ax.text(
+            j, i,
+            f"{labels[i][j]}\n{cm[i, j]:,}",
+            ha="center",
+            va="center",
+            fontsize=15,
+            fontweight="bold",
+            color="black"
+        )
+
+# Axis labels
+ax.set_xticks([0, 1])
+ax.set_xticklabels(["Fully Paid", "Default"])
+
+ax.set_yticks([0, 1])
+ax.set_yticklabels(["Fully Paid", "Default"])
+
+ax.set_xlabel("Predicted label", fontsize=12)
+ax.set_ylabel("True label", fontsize=12)
+
+ax.set_title(
+    "Logistic Regression Confusion Matrix - 2015",
+    fontsize=15,
+    pad=15
+)
+
+# Draw borders between cells
+ax.set_xticks([0.5], minor=True)
+ax.set_yticks([0.5], minor=True)
+ax.grid(which="minor", color="white", linewidth=3)
+ax.tick_params(which="minor", bottom=False, left=False)
+
+plt.tight_layout()
+
+# Save image without color bar
+plt.savefig(
+    "reports/figures/confusion_matrix.png",
+    dpi=300,
+    bbox_inches="tight"
+)
+
+plt.close(fig)
