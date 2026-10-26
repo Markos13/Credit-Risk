@@ -616,19 +616,19 @@ y_val_pred = (y_val_proba >= threshold).astype(int)
 cm = confusion_matrix(y_val, y_val_pred, labels=[0, 1])
 
 # Keep terminal output unchanged
-print("\n=== Confusion Matrix (Threshold = 0.15) ===")
-print(cm)
-
-# Classification report
-print("\n=== Classification Report ===")
-print(
-    classification_report(
-        y_val,
-        y_val_pred,
-        target_names=["Fully Paid", "Default"],
-        zero_division=0
-    )
-)
+#print("\n=== Confusion Matrix (Threshold = 0.15) ===")
+#print(cm)
+#
+## Classification report
+#print("\n=== Classification Report ===")
+#print(
+#    classification_report(
+#        y_val,
+#        y_val_pred,
+#        target_names=["Fully Paid", "Default"],
+#        zero_division=0
+#    )
+#)
 
 # ========================================
 # Visualize confusion matrix
@@ -847,3 +847,73 @@ print(
     .categories_[categorical_cols.index("application_type")]
 )'''
 
+
+# ========================================
+# 32. Logistic regression regularization tuning
+# ========================================
+
+from sklearn.linear_model import LogisticRegression
+from sklearn.metrics import (
+    roc_auc_score,
+    average_precision_score,
+    brier_score_loss,
+    log_loss,
+    f1_score
+)
+
+C_values = [0.01, 0.1, 1.0, 10.0]
+
+tuning_results = []
+trained_models = {}
+
+threshold = 0.15
+
+for C in C_values:
+
+    model = LogisticRegression(
+        C=C,
+        max_iter=1000,
+        solver="lbfgs"
+    )
+
+    # Fit on 2014 training data only
+    model.fit(X_train_processed, y_train)
+
+    # Evaluate on 2015 validation data
+    probabilities = model.predict_proba(X_val_processed)[:, 1]
+
+    predictions = (probabilities >= threshold).astype(int)
+
+    tuning_results.append({
+        "C": C,
+        "ROC_AUC": roc_auc_score(y_val, probabilities),
+        "PR_AUC": average_precision_score(y_val, probabilities),
+        "Brier": brier_score_loss(y_val, probabilities),
+        "Log_Loss": log_loss(y_val, probabilities),
+        "F1_at_15pct": f1_score(y_val, predictions),
+        "Mean_Predicted_PD": probabilities.mean()
+    })
+
+    trained_models[C] = model
+
+tuning_df = pd.DataFrame(tuning_results)
+
+print("\n=== Regularization Tuning Results ===")
+print(tuning_df.round(4).to_string(index=False))
+
+
+# ========================================
+# 33. Select best model
+# ========================================
+
+best_row = tuning_df.loc[tuning_df["ROC_AUC"].idxmax()]
+
+best_C = float(best_row["C"])
+best_model = trained_models[best_C]
+
+print("\n=== Best Logistic Regression Model ===")
+print("Best C:", best_C)
+print("Validation ROC-AUC:", round(best_row["ROC_AUC"], 4))
+print("Validation PR-AUC:", round(best_row["PR_AUC"], 4))
+print("Validation Brier Score:", round(best_row["Brier"], 4))
+print("F1 at 15% threshold:", round(best_row["F1_at_15pct"], 4))
