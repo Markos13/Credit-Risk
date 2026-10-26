@@ -507,14 +507,14 @@ X_train_processed = preprocessor.fit_transform(X_train)
 
 X_val_processed = preprocessor.transform(X_val)
 
-print("\nProcessed dataset shapes:")
+'''print("\nProcessed dataset shapes:")
 print("Training:", X_train_processed.shape)
 print("Validation:", X_val_processed.shape)
 
 print("\nMissing values after preprocessing:")
 
 
-'''print(
+print(
     "Training:",
     np.isnan(X_train_processed).sum()
 )
@@ -539,5 +539,52 @@ log_reg = LogisticRegression(
 
 log_reg.fit(X_train_processed, y_train)
 
-print("\nLogistic regression training completed.")
-print("Iterations used:", log_reg.n_iter_[0])
+#print("\nLogistic regression training completed.")
+#print("Iterations used:", log_reg.n_iter_[0])
+
+
+
+# ========================================
+# 25. Generate validation predictions
+# ========================================
+
+y_val_proba = log_reg.predict_proba(
+    X_val_processed
+)[:, 1]
+
+#print("\nFirst 10 predicted default probabilities:")
+#print(y_val_proba[:10])
+
+
+# ========================================
+# 26. Evaluate validation performance
+# ========================================
+
+roc_auc = roc_auc_score(
+    y_val,
+    y_val_proba
+)
+
+pr_auc = average_precision_score(
+    y_val,
+    y_val_proba
+)
+
+brier = brier_score_loss(
+    y_val,
+    y_val_proba
+)
+
+logloss = log_loss(
+    y_val,
+    y_val_proba
+)
+
+print("\n=== Logistic Regression Validation Results (2015) ===")
+print(f"ROC-AUC:           {roc_auc:.4f}")
+print(f"Average Precision: {pr_auc:.4f}")
+print(f"Brier Score:       {brier:.4f}")
+print(f"Log Loss:          {logloss:.4f}")
+
+print(f"\nActual default rate:    {y_val.mean():.4f}")
+print(f"Mean predicted default: {y_val_proba.mean():.4f}")
