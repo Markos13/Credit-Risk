@@ -932,3 +932,27 @@ print(f"Average Precision: {average_precision_score(y_test, y_test_proba):.4f}")
 print(f"Brier Score: {brier_score_loss(y_test, y_test_proba):.4f}")
 print(f"Log Loss: {log_loss(y_test, y_test_proba):.4f}")
 
+
+
+# ========================================
+# 37. Save final model
+# ========================================
+
+import joblib
+from pathlib import Path
+
+models_dir = Path("models")
+models_dir.mkdir(parents=True, exist_ok=True)
+
+joblib.dump(
+    {
+        "pipeline": final_pipeline,
+        "threshold": 0.15,
+        "target": "default",
+        "training_years": [2014, 2015],
+        "test_year": 2016
+    },
+    models_dir / "logistic_regression_final.joblib"
+)
+
+print("\nFinal model saved successfully.")
