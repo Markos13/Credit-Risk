@@ -585,14 +585,14 @@ logloss = log_loss(
     y_val_proba
 )
 
-print("\n=== Logistic Regression Validation Results (2015) ===")
-print(f"ROC-AUC:           {roc_auc:.4f}")
-print(f"Average Precision: {pr_auc:.4f}")
-print(f"Brier Score:       {brier:.4f}")
-print(f"Log Loss:          {logloss:.4f}")
+#print("\n=== Logistic Regression Validation Results (2015) ===")
+#print(f"ROC-AUC:           {roc_auc:.4f}")
+#print(f"Average Precision: {pr_auc:.4f}")
+#print(f"Brier Score:       {brier:.4f}")
+#print(f"Log Loss:          {logloss:.4f}")
 
-print(f"\nActual default rate:    {y_val.mean():.4f}")
-print(f"Mean predicted default: {y_val_proba.mean():.4f}")
+#print(f"\nActual default rate:    {y_val.mean():.4f}")
+#print(f"Mean predicted default: {y_val_proba.mean():.4f}")
 
 
 
@@ -847,3 +847,86 @@ print(
     .categories_[categorical_cols.index("application_type")]
 )'''
 
+
+
+# ========================================
+# 34. Combine training and validation data
+# ========================================
+
+X_train_final = pd.concat(
+    [X_train, X_val],
+    axis=0
+)
+
+y_train_final = pd.concat(
+    [y_train, y_val],
+    axis=0
+)
+
+#print("\nFinal training shape:", X_train_final.shape)
+#print("Final training default rate:", y_train_final.mean())
+
+
+# ========================================
+# 35. Final model pipeline
+# ========================================
+
+from sklearn.pipeline import Pipeline
+from sklearn.base import clone
+from sklearn.linear_model import LogisticRegression
+
+final_pipeline = Pipeline(steps=[
+    ("preprocessor", clone(preprocessor)),
+    ("classifier", LogisticRegression(
+        C=1.0,
+        max_iter=1000,
+        solver="lbfgs"
+    ))
+])
+
+final_pipeline.fit(X_train_final, y_train_final)
+
+print("\nFinal model training completed.")
+
+
+# ========================================
+# 36. Final test evaluation
+# ========================================
+
+
+y_test_proba = final_pipeline.predict_proba(X_test)[:, 1]
+
+print("\n=== Final Logistic Regression Test Results (2016) ===")
+
+print(f"ROC-AUC:           {roc_auc_score(y_test, y_test_proba):.4f}")
+print(f"Average Precision: {average_precision_score(y_test, y_test_proba):.4f}")
+print(f"Brier Score:       {brier_score_loss(y_test, y_test_proba):.4f}")
+print(f"Log Loss:          {log_loss(y_test, y_test_proba):.4f}")
+
+print(f"\nActual default rate:    {y_test.mean():.4f}")
+print(f"Mean predicted default: {y_test_proba.mean():.4f}")
+
+# Use our previously selected threshold
+final_threshold = 0.15
+
+y_test_pred = (y_test_proba >= final_threshold).astype(int)
+
+print("\n=== Test Confusion Matrix (Threshold = 15%) ===")
+print(confusion_matrix(y_test, y_test_pred))
+
+print("\n=== Test Classification Report ===")
+print(
+    classification_report(
+        y_test,
+        y_test_pred,
+        target_names=["Fully Paid", "Default"],
+        zero_division=0
+    )
+)
+
+
+
+print(f"ROC-AUC: {roc_auc_score(y_test, y_test_proba):.4f}")
+print(f"Average Precision: {average_precision_score(y_test, y_test_proba):.4f}")
+print(f"Brier Score: {brier_score_loss(y_test, y_test_proba):.4f}")
+print(f"Log Loss: {log_loss(y_test, y_test_proba):.4f}")
