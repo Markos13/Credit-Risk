@@ -1,11 +1,17 @@
+
 import pandas as pd
+import numpy as np
 import matplotlib.pyplot as plt
-import numpy as mp
+import joblib
+
+from pathlib import Path
+from matplotlib.colors import ListedColormap
+
 from sklearn.compose import ColumnTransformer
 from sklearn.pipeline import Pipeline
+from sklearn.base import clone
 from sklearn.impute import SimpleImputer
 from sklearn.preprocessing import StandardScaler, OneHotEncoder
-from pathlib import Path
 from sklearn.linear_model import LogisticRegression
 from sklearn.calibration import calibration_curve
 from sklearn.metrics import (
@@ -14,16 +20,39 @@ from sklearn.metrics import (
     brier_score_loss,
     log_loss,
     confusion_matrix,
-    ConfusionMatrixDisplay,
-    classification_report
+    classification_report,
+    precision_score,
+    recall_score,
+    f1_score,
 )
 
+
+# ========================================
+# 1. Project directories
+# ========================================
+
+FIGURES_DIR = Path("reports/figures")
+MODELS_DIR = Path("models")
+
+FIGURES_DIR.mkdir(parents=True, exist_ok=True)
+MODELS_DIR.mkdir(parents=True, exist_ok=True)
+
+
+# ========================================
+# 2. Load dataset
+# ========================================
 
 df = pd.read_csv(
     "loan_2014_18.csv",
     low_memory=False
 )
 
+print("Original dataset shape:", df.shape)
+
+
+# ========================================
+# 3. Parse loan issuance dates
+# ========================================
 
 df["issue_d"] = pd.to_datetime(
     df["issue_d"],
@@ -31,10 +60,14 @@ df["issue_d"] = pd.to_datetime(
     errors="coerce"
 )
 
-
 df["issue_year"] = df["issue_d"].dt.year
 
-#print("Missing issuance dates:", df["issue_d"].isna().sum())
+print("\nMissing issuance dates:", df["issue_d"].isna().sum())
+
+
+# ========================================
+# 4. Define target variable
+# ========================================
 
 valid_status = [
     "Fully Paid",
@@ -50,9 +83,12 @@ df_clean["default"] = df_clean["loan_status"].map({
     "Fully Paid": 0,
     "Charged Off": 1,
     "Default": 1
-})
+}).astype(int)
 
 
+# ========================================
+# 5. Define leakage exclusions
+# ========================================
 
 leakage_cols = [
     "out_prncp",
@@ -86,96 +122,27 @@ leakage_cols = [
     "hardship_payoff_balance_amount",
     "hardship_last_payment_amount",
     "debt_settlement_flag",
-    "loan_status",
-    "default",
-    "id",
-    "url",
-    "Unnamed: 0",
-    "pymnt_plan",
     "debt_settlement_flag_date",
     "settlement_status",
     "settlement_date",
     "settlement_amount",
     "settlement_percentage",
     "settlement_term",
+    "loan_status",
+    "default",
+    "id",
+    "url",
+    "Unnamed: 0",
+    "pymnt_plan",
     "funded_amnt_inv"
 ]
 
 
-
-# Calculate yearly loan statistics
-yearly_summary = df_clean.groupby("issue_year")["default"].agg(
-    total_loans="count",
-    total_defaults="sum",
-    default_rate="mean"
-)
-
-yearly_summary["default_rate"] *= 100
-
-
-#print("\nYearly default statistics:")
-#print(yearly_summary)
-
-
-
-plt.figure(figsize=(10, 5))
-
-plt.plot(
-    yearly_summary.index,
-    yearly_summary["default_rate"],
-    marker="o"
-)
-
-plt.xlabel("Loan Issuance Year")
-plt.ylabel("Observed Default Rate (%)")
-plt.title("Observed Default Rate by Loan Issuance Year")
-plt.grid(alpha=0.3)
-
-
-plt.xticks(yearly_summary.index.astype(int))
-plt.tight_layout()
-
-Path("reports/figures").mkdir(parents=True, exist_ok=True)
-
-plt.savefig(
-    "reports/figures/default_rate_by_year.png",
-    dpi=300,
-    bbox_inches="tight"
-)
-
-plt.close()
-
-# Each year's loans-repayment time(36 or 60 months) in percentage 
-term_distribution = pd.crosstab(
-    df_clean["issue_year"],
-    df_clean["term"],
-    normalize="index"
-) * 100
-
-
-#print("\nLoan term distribution:")
-#print(term_distribution.round(2))
-
-
-status_by_year = pd.crosstab(
-    df["issue_year"],
-    df["loan_status"],
-    normalize="index"
-) * 100
-
-
-'''print("\nLoan status by year:")
-print(status_by_year.round(2).to_string())
-
-print("\nRemaining feature count:", df_model.shape[1])
-
-print("\nRemaining columns:")
-for col in df_model.columns:
-    print(col)'''
-
+# ========================================
+# 6. Additional feature exclusions
+# ========================================
 
 additional_exclusions = [
-    # Underwriting and funding information
     "funded_amnt",
     "int_rate",
     "installment",
@@ -184,45 +151,25 @@ additional_exclusions = [
     "initial_list_status",
     "verification_status",
     "verification_status_joint",
-
-    # Dates used for chronological splitting
     "issue_d",
     "issue_year",
-
-    # High-cardinality or unnecessary variables
     "emp_title",
     "title",
     "zip_code",
     "policy_code",
     "term",
     "application_type"
-    
 ]
+
+
+# ========================================
+# 7. Construct model feature dataset
+# ========================================
 
 df_model = df_clean.drop(
     columns=leakage_cols + additional_exclusions,
     errors="ignore"
 ).copy()
-
-
-#print("Remaining features:", df_model.shape[1])
-
-
-'''df_clean["earliest_cr_line"] = pd.to_datetime(
-    df_clean["earliest_cr_line"],
-    format="%m-%d-%y",
-    errors="coerce"
-)
-
-invalid_credit_dates = (
-    df_clean["earliest_cr_line"] >
-    df_clean["issue_d"]
-).sum()
-
-print(
-    "Credit history dates after loan issuance:",
-    invalid_credit_dates
-)'''
 
 
 
@@ -231,19 +178,18 @@ print(
 # ========================================
 
 eligible_mask = (
-    (df_clean["term"].str.strip() == "36 months") &
-    (df_clean["issue_year"].between(2014, 2016))
+    (df_clean["term"].str.strip() == "36 months")
+    & (df_clean["issue_year"].between(2014, 2016))
 )
 
 df_selected = df_clean.loc[eligible_mask].copy()
 
-# Model features and target
 X = df_model.loc[df_selected.index].copy()
 y = df_selected["default"].copy()
 
 
 # ========================================
-# 10. Chronological split
+# 10. Chronological train/validation/test split
 # ========================================
 
 train_mask = df_selected["issue_year"] == 2014
@@ -258,83 +204,69 @@ y_train = y.loc[train_mask].copy()
 y_val = y.loc[val_mask].copy()
 y_test = y.loc[test_mask].copy()
 
+print("\n=== Dataset Splits ===")
+print("Training (2014):", X_train.shape)
+print("Validation (2015):", X_val.shape)
+print("Testing (2016):", X_test.shape)
 
-# ========================================
-# 11. Verify the split
-# ========================================
+assert len(X_train) > 0
+assert len(X_val) > 0
+assert len(X_test) > 0
 
-'''print("\nDataset shapes:")
-
-print("Training:", X_train.shape)
-print("Validation:", X_val.shape)
-print("Testing:", X_test.shape)
-
-print("\nDefault rates:")
-
-print("Training:", round(y_train.mean() * 100, 2), "%")
-print("Validation:", round(y_val.mean() * 100, 2), "%")
-print("Testing:", round(y_test.mean() * 100, 2), "%")
-
-print("\nMissing target values:", y.isna().sum())
-
-print("\nOverlapping indexes:")
-print("Train / Validation:", len(X_train.index.intersection(X_val.index)))
-print("Train / Test:", len(X_train.index.intersection(X_test.index)))
-print("Validation / Test:", len(X_val.index.intersection(X_test.index)))'''
+assert X_train.index.intersection(X_val.index).empty
+assert X_train.index.intersection(X_test.index).empty
+assert X_val.index.intersection(X_test.index).empty
 
 
 # ========================================
-# 12. Missing-value analysis
+# 11. Missing-value feature selection
 # ========================================
 
-# Calculate missing percentages using TRAINING data only
+# Determine missingness from 2014 training data only.
+
 missing_pct = X_train.isna().mean() * 100
 
-# Identify features with more than 30% missing values
 excluded_features = missing_pct[
     missing_pct > 30
 ].sort_values(ascending=False)
 
-# Identify features to keep
 features_to_keep = missing_pct[
     missing_pct <= 30
 ].index
 
-# Apply the SAME feature selection to all datasets
 X_train = X_train[features_to_keep].copy()
 X_val = X_val[features_to_keep].copy()
 X_test = X_test[features_to_keep].copy()
 
+print("\nFeatures removed due to >30% missingness:",
+      len(excluded_features))
 
 
 # ========================================
-# 14. Feature transformations
+# 12. Feature engineering
 # ========================================
 
 for dataset in [X_train, X_val, X_test]:
 
-    # Convert earliest credit line date
+    # Original credit-line opening date.
     credit_date = pd.to_datetime(
         dataset["earliest_cr_line"],
         format="%b-%Y",
         errors="coerce"
     )
 
-    # Get each loan's issuance date
+    # Original issuance date, aligned by index.
     issue_date = df_clean.loc[dataset.index, "issue_d"]
 
-    # Calculate credit history length in months
+    # Credit history duration in months.
     dataset["credit_history_months"] = (
         (issue_date.dt.year - credit_date.dt.year) * 12
         + (issue_date.dt.month - credit_date.dt.month)
     )
 
-
-    # Remove original date column
     del dataset["earliest_cr_line"]
 
-
-    # Convert revolving utilization to numeric
+    # Convert revolving utilization percentages to numeric.
     dataset["revol_util"] = pd.to_numeric(
         dataset["revol_util"]
         .astype("string")
@@ -344,93 +276,41 @@ for dataset in [X_train, X_val, X_test]:
 
 
 # ========================================
-# 15. Verify feature selection
+# 13. Validate engineered features
 # ========================================
 
-'''print("\nExcluded features (>30% missing in training):")
-print(excluded_features.to_string())
+print("\n=== Engineered Feature Checks ===")
 
-print("\nNumber of excluded features:", len(excluded_features))
+for name, dataset in [
+    ("Training", X_train),
+    ("Validation", X_val),
+    ("Testing", X_test)
+]:
 
-print("\nDataset shapes after filtering:")
-print("Training:", X_train.shape)
-print("Validation:", X_val.shape)
-print("Testing:", X_test.shape)
+    print(f"\n{name} missingness (%):")
 
-# ========================================
-# 16. Inspect remaining feature types
-# ========================================
+    print(
+        (
+            dataset[
+                ["credit_history_months", "revol_util"]
+            ].isna().mean() * 100
+        ).round(2).to_string()
+    )
 
-print("\nRemaining feature data types:")
-print(X_train.dtypes.to_string())
+    negative_count = (
+        dataset["credit_history_months"] < 0
+    ).sum()
 
-print("\nRemaining missing values (%):")
-print(
-    (X_train.isna().mean() * 100)
-    .sort_values(ascending=False)
-    .round(2)
-    .to_string()
-)
+    print("Negative credit history values:", negative_count)
 
-print("\nCategorical and date columns:")
-print(
-    X_train.select_dtypes(
-        include=["object", "str", "category", "datetime"]
-    ).columns.tolist()
-)'''
+    if negative_count > 0:
+        raise ValueError(
+            f"{name} contains negative credit history values."
+        )
 
 
 # ========================================
-# 17. Pearson correlation analysis
-# ========================================
-
-# Select numerical features from TRAINING data only
-numeric_features = X_train.select_dtypes(
-    include="number"
-)
-
-# Calculate correlations between features and default
-target_corr = numeric_features.corrwith(y_train)
-
-# Sort by absolute correlation strength
-target_corr = target_corr.reindex(
-    target_corr.abs().sort_values(ascending=False).index
-)
-
-#print("\nPearson correlation with default:")
-#print(target_corr.round(4).to_string())
-
-
-# ========================================
-# 18. Highly correlated feature pairs
-# ========================================
-
-import numpy as np
-
-# Calculate feature correlation matrix
-corr_matrix = numeric_features.corr().abs()
-
-# Keep only upper triangle to avoid duplicates
-upper_triangle = corr_matrix.where(
-    np.triu(
-        np.ones(corr_matrix.shape),
-        k=1
-    ).astype(bool)
-)
-
-# Find feature pairs with correlation > 0.90
-high_corr_pairs = (
-    upper_triangle.stack()
-    .loc[lambda x: x > 0.90]
-    .sort_values(ascending=False)
-)
-
-#print("\nHighly correlated feature pairs:")
-#print(high_corr_pairs.to_string())
-
-
-# ========================================
-# 18. Remove redundant features
+# 14. Remove redundant features
 # ========================================
 
 redundant_features = [
@@ -443,14 +323,9 @@ X_train = X_train.drop(columns=redundant_features)
 X_val = X_val.drop(columns=redundant_features)
 X_test = X_test.drop(columns=redundant_features)
 
-'''print("\nShapes after removing redundant features:")
-print("Training:", X_train.shape)
-print("Validation:", X_val.shape)
-print("Testing:", X_test.shape)'''
-
 
 # ========================================
-# 19. Identify feature types
+# 15. Identify numeric/categorical features
 # ========================================
 
 numeric_cols = X_train.select_dtypes(
@@ -461,18 +336,37 @@ categorical_cols = X_train.select_dtypes(
     include=["object", "str", "category"]
 ).columns.tolist()
 
-'''print("\nNumerical features:", len(numeric_cols))
+assert (
+    len(numeric_cols) + len(categorical_cols)
+    == X_train.shape[1]
+)
+
+assert X_train.columns.equals(X_val.columns)
+assert X_train.columns.equals(X_test.columns)
+
+print("\nNumeric features:", len(numeric_cols))
 print("Categorical features:", len(categorical_cols))
-
-print("\nCategorical columns:")
-print(categorical_cols)'''
-
-assert len(numeric_cols) + len(categorical_cols) == X_train.shape[1]
-
 
 
 # ========================================
-# 20. Numerical preprocessing
+# 16. Check constant training features
+# ========================================
+
+unique_counts = X_train.nunique(dropna=False)
+
+constant_features = unique_counts[
+    unique_counts <= 1
+]
+
+print("\nConstant training features:",
+      len(constant_features))
+
+if len(constant_features) > 0:
+    print(constant_features.to_string())
+
+
+# ========================================
+# 17. Preprocessing pipelines
 # ========================================
 
 numeric_transformer = Pipeline(steps=[
@@ -480,20 +374,10 @@ numeric_transformer = Pipeline(steps=[
     ("scaler", StandardScaler())
 ])
 
-
-# ========================================
-# 21. Categorical preprocessing
-# ========================================
-
 categorical_transformer = Pipeline(steps=[
     ("imputer", SimpleImputer(strategy="most_frequent")),
     ("encoder", OneHotEncoder(handle_unknown="ignore"))
 ])
-
-
-# ========================================
-# 22. Combine preprocessing
-# ========================================
 
 preprocessor = ColumnTransformer(
     transformers=[
@@ -503,36 +387,22 @@ preprocessor = ColumnTransformer(
 )
 
 
-
 # ========================================
-# 23. Fit and transform
+# 18. Fit preprocessing on training data
 # ========================================
 
 X_train_processed = preprocessor.fit_transform(X_train)
-
 X_val_processed = preprocessor.transform(X_val)
 
-'''print("\nProcessed dataset shapes:")
-print("Training:", X_train_processed.shape)
-print("Validation:", X_val_processed.shape)
+print("\nProcessed training shape:",
+      X_train_processed.shape)
 
-print("\nMissing values after preprocessing:")
-
-
-print(
-    "Training:",
-    np.isnan(X_train_processed).sum()
-)
-
-print(
-    "Validation:",
-    np.isnan(X_val_processed).sum()
-)'''
-
+print("Processed validation shape:",
+      X_val_processed.shape)
 
 
 # ========================================
-# 24. Train logistic regression baseline
+# 19. Train baseline logistic regression
 # ========================================
 
 log_reg = LogisticRegression(
@@ -544,115 +414,95 @@ log_reg = LogisticRegression(
 
 log_reg.fit(X_train_processed, y_train)
 
-#print("\nLogistic regression training completed.")
-#print("Iterations used:", log_reg.n_iter_[0])
-
-
-
-# ========================================
-# 25. Generate validation predictions
-# ========================================
-
 y_val_proba = log_reg.predict_proba(
     X_val_processed
 )[:, 1]
 
-#print("\nFirst 10 predicted default probabilities:")
-#print(y_val_proba[:10])
+
+# ========================================
+# 20. Validation probability metrics
+# ========================================
+
+print("\n=== Logistic Regression Validation (2015) ===")
+
+print(
+    f"ROC-AUC: "
+    f"{roc_auc_score(y_val, y_val_proba):.4f}"
+)
+
+print(
+    f"Average Precision: "
+    f"{average_precision_score(y_val, y_val_proba):.4f}"
+)
+
+print(
+    f"Brier Score: "
+    f"{brier_score_loss(y_val, y_val_proba):.4f}"
+)
+
+print(
+    f"Log Loss: "
+    f"{log_loss(y_val, y_val_proba):.4f}"
+)
+
+print(f"Actual default rate: {y_val.mean():.4f}")
+print(f"Mean predicted default: {y_val_proba.mean():.4f}")
 
 
 # ========================================
-# 26. Evaluate validation performance
+# 21. Validation classification
 # ========================================
 
-roc_auc = roc_auc_score(
-    y_val,
-    y_val_proba
-)
-
-pr_auc = average_precision_score(
-    y_val,
-    y_val_proba
-)
-
-brier = brier_score_loss(
-    y_val,
-    y_val_proba
-)
-
-logloss = log_loss(
-    y_val,
-    y_val_proba
-)
-
-#print("\n=== Logistic Regression Validation Results (2015) ===")
-#print(f"ROC-AUC:           {roc_auc:.4f}")
-#print(f"Average Precision: {pr_auc:.4f}")
-#print(f"Brier Score:       {brier:.4f}")
-#print(f"Log Loss:          {logloss:.4f}")
-
-#print(f"\nActual default rate:    {y_val.mean():.4f}")
-#print(f"Mean predicted default: {y_val_proba.mean():.4f}")
-
-
-
-# ========================================
-# 28. Confusion matrix
-# ========================================
-
-import matplotlib.pyplot as plt
-from matplotlib.colors import ListedColormap
-from sklearn.metrics import (
-    confusion_matrix,
-    classification_report
-)
-
-# Convert probabilities into binary predictions
 threshold = 0.15
 
 y_val_pred = (y_val_proba >= threshold).astype(int)
 
-# Calculate confusion matrix
-cm = confusion_matrix(y_val, y_val_pred, labels=[0, 1])
+cm = confusion_matrix(
+    y_val,
+    y_val_pred,
+    labels=[0, 1]
+)
 
-# Keep terminal output unchanged
-#print("\n=== Confusion Matrix (Threshold = 0.15) ===")
-#print(cm)
-#
-## Classification report
-#print("\n=== Classification Report ===")
-#print(
-#    classification_report(
-#        y_val,
-#        y_val_pred,
-#        target_names=["Fully Paid", "Default"],
-#        zero_division=0
-#    )
-#)
+print("\n=== Validation Confusion Matrix (15%) ===")
+print(cm)
+
+print("\n=== Validation Classification Report ===")
+
+print(
+    classification_report(
+        y_val,
+        y_val_pred,
+        target_names=["Fully Paid", "Default"],
+        zero_division=0
+    )
+)
+
 
 # ========================================
-# Visualize confusion matrix
+# 22. Save validation confusion matrix
 # ========================================
 
 fig, ax = plt.subplots(figsize=(8, 6))
 
-# Different color for each cell
 colors = ListedColormap([
-    "#B7E4C7",  # TN - Green
-    "#FFD6A5",  # FP - Orange
-    "#FFADAD",  # FN - Red
-    "#A0C4FF"   # TP - Blue
+    "#B7E4C7",
+    "#FFD6A5",
+    "#FFADAD",
+    "#A0C4FF"
 ])
 
-# Assign colors independently of confusion matrix values
 color_positions = [
     [0, 1],
     [2, 3]
 ]
 
-ax.imshow(color_positions, cmap=colors, vmin=0, vmax=3)
+ax.imshow(
+    color_positions,
+    cmap=colors,
+    vmin=0,
+    vmax=3
+)
 
-# Cell labels
 labels = [
     ["TN", "FP"],
     ["FN", "TP"]
@@ -661,7 +511,8 @@ labels = [
 for i in range(2):
     for j in range(2):
         ax.text(
-            j, i,
+            j,
+            i,
             f"{labels[i][j]}\n{cm[i, j]:,}",
             ha="center",
             va="center",
@@ -670,34 +521,35 @@ for i in range(2):
             color="black"
         )
 
-# Axis labels
 ax.set_xticks([0, 1])
 ax.set_xticklabels(["Fully Paid", "Default"])
 
 ax.set_yticks([0, 1])
 ax.set_yticklabels(["Fully Paid", "Default"])
 
-ax.set_xlabel("Predicted label", fontsize=12)
-ax.set_ylabel("True label", fontsize=12)
+ax.set_xlabel("Predicted label")
+ax.set_ylabel("True label")
+ax.set_title("Logistic Regression Confusion Matrix - 2015")
 
-ax.set_title(
-    "Logistic Regression Confusion Matrix - 2015",
-    fontsize=15,
-    pad=15
-)
-
-
-# Draw borders between cells
 ax.set_xticks([0.5], minor=True)
 ax.set_yticks([0.5], minor=True)
-ax.grid(which="minor", color="white", linewidth=3)
-ax.tick_params(which="minor", bottom=False, left=False)
 
-plt.tight_layout()
+ax.grid(
+    which="minor",
+    color="white",
+    linewidth=3
+)
 
-# Save image without color bar
-plt.savefig(
-    "reports/figures/confusion_matrix.png",
+ax.tick_params(
+    which="minor",
+    bottom=False,
+    left=False
+)
+
+fig.tight_layout()
+
+fig.savefig(
+    FIGURES_DIR / "confusion_matrix_2015.png",
     dpi=300,
     bbox_inches="tight"
 )
@@ -705,35 +557,50 @@ plt.savefig(
 plt.close(fig)
 
 
-'''
 # ========================================
-# 29. Compare classification thresholds
+# 23. Validation threshold comparison
 # ========================================
 
-from sklearn.metrics import precision_score, recall_score, f1_score
-
-thresholds = [0.10, 0.15, 0.20, 0.25, 0.30, 0.40, 0.50]
+thresholds = [
+    0.10,
+    0.15,
+    0.20,
+    0.25,
+    0.30,
+    0.40,
+    0.50
+]
 
 results = []
 
-for threshold in thresholds:
+for current_threshold in thresholds:
 
-    predictions = (y_val_proba >= threshold).astype(int)
+    predictions = (
+        y_val_proba >= current_threshold
+    ).astype(int)
 
     tn, fp, fn, tp = confusion_matrix(
-        y_val, predictions
+        y_val,
+        predictions,
+        labels=[0, 1]
     ).ravel()
 
     results.append({
-        "Threshold": threshold,
+        "Threshold": current_threshold,
         "Precision": precision_score(
-            y_val, predictions, zero_division=0
+            y_val,
+            predictions,
+            zero_division=0
         ),
         "Recall": recall_score(
-            y_val, predictions, zero_division=0
+            y_val,
+            predictions,
+            zero_division=0
         ),
         "F1": f1_score(
-            y_val, predictions, zero_division=0
+            y_val,
+            predictions,
+            zero_division=0
         ),
         "False Positives": fp,
         "False Negatives": fn,
@@ -742,15 +609,15 @@ for threshold in thresholds:
 
 threshold_results = pd.DataFrame(results)
 
-print("\n=== Threshold Comparison ===")
-print(threshold_results.round(4).to_string(index=False))'''
-
+print("\n=== Validation Threshold Comparison ===")
+print(
+    threshold_results.round(4).to_string(index=False)
+)
 
 
 # ========================================
-# 30. Calibration analysis
+# 24. Validation calibration curve
 # ========================================
-
 
 fraction_of_positives, mean_predicted_value = calibration_curve(
     y_val,
@@ -759,16 +626,16 @@ fraction_of_positives, mean_predicted_value = calibration_curve(
     strategy="quantile"
 )
 
-plt.figure(figsize=(8, 6))
+fig, ax = plt.subplots(figsize=(8, 6))
 
-plt.plot(
+ax.plot(
     mean_predicted_value,
     fraction_of_positives,
     marker="o",
-    label="Logistic Regression"
+    label="Logistic Regression (2015)"
 )
 
-plt.plot(
+ax.plot(
     [0, 1],
     [0, 1],
     linestyle="--",
@@ -776,24 +643,25 @@ plt.plot(
     label="Perfect Calibration"
 )
 
-plt.xlabel("Mean Predicted Default Probability")
-plt.ylabel("Observed Default Rate")
-plt.title("Calibration Curve - 2015 Validation")
-plt.legend()
-plt.grid(alpha=0.3)
-plt.tight_layout()
+ax.set_xlabel("Mean Predicted Default Probability")
+ax.set_ylabel("Observed Default Rate")
+ax.set_title("Calibration Curve - 2015 Validation")
+ax.legend()
+ax.grid(alpha=0.3)
 
-plt.savefig(
-    "reports/figures/calibration_curve_2015.png",
+fig.tight_layout()
+
+fig.savefig(
+    FIGURES_DIR / "calibration_curve_2015.png",
     dpi=300,
     bbox_inches="tight"
 )
 
-plt.close()
+plt.close(fig)
 
-'''
+
 # ========================================
-# 31. Logistic regression coefficients
+# 25. Logistic regression coefficients
 # ========================================
 
 feature_names = preprocessor.get_feature_names_out()
@@ -813,44 +681,14 @@ coefficients = coefficients.sort_values(
 )
 
 print("\n=== Top 20 Logistic Regression Coefficients ===")
+
 print(
     coefficients.head(20).to_string(index=False)
 )
 
-print("\n=== Top 10 Features Increasing Default Risk ===")
-print(
-    coefficients.sort_values(
-        "coefficient",
-        ascending=False
-    ).head(10).to_string(index=False)
-)
-
-print("\n=== Top 10 Features Decreasing Default Risk ===")
-print(
-    coefficients.sort_values(
-        "coefficient",
-        ascending=True
-    ).head(10).to_string(index=False)
-)
-
-
-print("\nApplication type distribution in training:")
-print(X_train["application_type"].value_counts(dropna=False))
-
-print("\nApplication type distribution in validation:")
-print(X_val["application_type"].value_counts(dropna=False))
-
-print("\nApplication type categories learned:")
-print(
-    preprocessor.named_transformers_["cat"]
-    .named_steps["encoder"]
-    .categories_[categorical_cols.index("application_type")]
-)'''
-
-
 
 # ========================================
-# 34. Combine training and validation data
+# 26. Combine 2014 and 2015 for final fitting
 # ========================================
 
 X_train_final = pd.concat(
@@ -863,59 +701,88 @@ y_train_final = pd.concat(
     axis=0
 )
 
-#print("\nFinal training shape:", X_train_final.shape)
-#print("Final training default rate:", y_train_final.mean())
+print("\nFinal training shape:",
+      X_train_final.shape)
 
 
 # ========================================
-# 35. Final model pipeline
+# 27. Fit final pipeline
 # ========================================
-
-from sklearn.pipeline import Pipeline
-from sklearn.base import clone
-from sklearn.linear_model import LogisticRegression
 
 final_pipeline = Pipeline(steps=[
     ("preprocessor", clone(preprocessor)),
     ("classifier", LogisticRegression(
         C=1.0,
         max_iter=1000,
-        solver="lbfgs"
+        solver="lbfgs",
+        random_state=42
     ))
 ])
 
-final_pipeline.fit(X_train_final, y_train_final)
+final_pipeline.fit(
+    X_train_final,
+    y_train_final
+)
 
-#print("\nFinal model training completed.")
-
+print("\nFinal model training completed.")
 
 
 # ========================================
-# 36. Final test evaluation
+# 28. Evaluate on 2016 test data
 # ========================================
 
-
-y_test_proba = final_pipeline.predict_proba(X_test)[:, 1]
+y_test_proba = final_pipeline.predict_proba(
+    X_test
+)[:, 1]
 
 print("\n=== Final Logistic Regression Test Results (2016) ===")
 
-print(f"ROC-AUC:           {roc_auc_score(y_test, y_test_proba):.4f}")
-print(f"Average Precision: {average_precision_score(y_test, y_test_proba):.4f}")
-print(f"Brier Score:       {brier_score_loss(y_test, y_test_proba):.4f}")
-print(f"Log Loss:          {log_loss(y_test, y_test_proba):.4f}")
+print(
+    f"ROC-AUC: "
+    f"{roc_auc_score(y_test, y_test_proba):.4f}"
+)
 
-print(f"\nActual default rate:    {y_test.mean():.4f}")
+print(
+    f"Average Precision: "
+    f"{average_precision_score(y_test, y_test_proba):.4f}"
+)
+
+print(
+    f"Brier Score: "
+    f"{brier_score_loss(y_test, y_test_proba):.4f}"
+)
+
+print(
+    f"Log Loss: "
+    f"{log_loss(y_test, y_test_proba):.4f}"
+)
+
+print(f"\nActual default rate: {y_test.mean():.4f}")
 print(f"Mean predicted default: {y_test_proba.mean():.4f}")
 
-# Use our previously selected threshold
+
+# ========================================
+# 29. Final test classification at 15%
+# ========================================
+
 final_threshold = 0.15
 
-y_test_pred = (y_test_proba >= final_threshold).astype(int)
+y_test_pred = (
+    y_test_proba >= final_threshold
+).astype(int)
 
-print("\n=== Test Confusion Matrix (Threshold = 15%) ===")
-print(confusion_matrix(y_test, y_test_pred))
+print("\n=== Test Confusion Matrix (15%) ===")
+
+print(
+    confusion_matrix(
+        y_test,
+        y_test_pred,
+        labels=[0, 1]
+    )
+)
 
 print("\n=== Test Classification Report ===")
+
 print(
     classification_report(
         y_test,
@@ -926,33 +793,89 @@ print(
 )
 
 
+# ========================================
+# 30. Final test calibration curve
+# ========================================
 
-print(f"ROC-AUC: {roc_auc_score(y_test, y_test_proba):.4f}")
-print(f"Average Precision: {average_precision_score(y_test, y_test_proba):.4f}")
-print(f"Brier Score: {brier_score_loss(y_test, y_test_proba):.4f}")
-print(f"Log Loss: {log_loss(y_test, y_test_proba):.4f}")
+fraction_of_positives, mean_predicted_value = calibration_curve(
+    y_test,
+    y_test_proba,
+    n_bins=10,
+    strategy="quantile"
+)
 
+fig, ax = plt.subplots(figsize=(8, 6))
+
+ax.plot(
+    mean_predicted_value,
+    fraction_of_positives,
+    marker="o",
+    label="Logistic Regression (2016)"
+)
+
+ax.plot(
+    [0, 1],
+    [0, 1],
+    linestyle="--",
+    color="gray",
+    label="Perfect Calibration"
+)
+
+ax.set_xlabel("Mean Predicted Default Probability")
+ax.set_ylabel("Observed Default Rate")
+ax.set_title("Calibration Curve - 2016 Test")
+ax.legend()
+ax.grid(alpha=0.3)
+
+fig.tight_layout()
+
+fig.savefig(
+    FIGURES_DIR / "calibration_curve_2016.png",
+    dpi=300,
+    bbox_inches="tight"
+)
+
+plt.close(fig)
 
 
 # ========================================
-# 37. Save final model
+# 31. Final consistency checks
 # ========================================
 
-import joblib
-from pathlib import Path
+assert X_train_final.columns.equals(X_test.columns), (
+    "Final training and test columns differ."
+)
 
-models_dir = Path("models")
-models_dir.mkdir(parents=True, exist_ok=True)
+assert len(y_test_proba) == len(y_test)
+
+assert np.isfinite(y_test_proba).all(), (
+    "Test probabilities contain non-finite values."
+)
+
+assert (
+    (y_test_proba >= 0)
+    & (y_test_proba <= 1)
+).all()
+
+print("\nFinal consistency checks passed.")
+
+
+# ========================================
+# 32. Save final model
+# ========================================
 
 joblib.dump(
     {
         "pipeline": final_pipeline,
-        "threshold": 0.15,
+        "threshold": final_threshold,
         "target": "default",
         "training_years": [2014, 2015],
-        "test_year": 2016
+        "test_year": 2016,
+        "feature_columns": X_train_final.columns.tolist()
     },
-    models_dir / "logistic_regression_final.joblib"
+    MODELS_DIR / "logistic_regression_final.joblib"
 )
 
 print("\nFinal model saved successfully.")
+
+print("\nAll analysis steps completed.")
