@@ -276,41 +276,7 @@ for dataset in [X_train, X_val, X_test]:
 
 
 # ========================================
-# 13. Validate engineered features
-# ========================================
-
-print("\n=== Engineered Feature Checks ===")
-
-for name, dataset in [
-    ("Training", X_train),
-    ("Validation", X_val),
-    ("Testing", X_test)
-]:
-
-    print(f"\n{name} missingness (%):")
-
-    print(
-        (
-            dataset[
-                ["credit_history_months", "revol_util"]
-            ].isna().mean() * 100
-        ).round(2).to_string()
-    )
-
-    negative_count = (
-        dataset["credit_history_months"] < 0
-    ).sum()
-
-    print("Negative credit history values:", negative_count)
-
-    if negative_count > 0:
-        raise ValueError(
-            f"{name} contains negative credit history values."
-        )
-
-
-# ========================================
-# 14. Remove redundant features
+# 13. Remove redundant features
 # ========================================
 
 redundant_features = [
@@ -325,7 +291,7 @@ X_test = X_test.drop(columns=redundant_features)
 
 
 # ========================================
-# 15. Identify numeric/categorical features
+# 14. Identify numeric/categorical features
 # ========================================
 
 numeric_cols = X_train.select_dtypes(
@@ -349,7 +315,7 @@ print("Categorical features:", len(categorical_cols))
 
 
 # ========================================
-# 16. Check constant training features
+# 15. Check constant training features
 # ========================================
 
 unique_counts = X_train.nunique(dropna=False)
@@ -366,7 +332,7 @@ if len(constant_features) > 0:
 
 
 # ========================================
-# 17. Preprocessing pipelines
+# 16. Preprocessing pipelines
 # ========================================
 
 numeric_transformer = Pipeline(steps=[
@@ -388,7 +354,7 @@ preprocessor = ColumnTransformer(
 
 
 # ========================================
-# 18. Fit preprocessing on training data
+# 17. Fit preprocessing on training data
 # ========================================
 
 X_train_processed = preprocessor.fit_transform(X_train)
@@ -402,7 +368,7 @@ print("Processed validation shape:",
 
 
 # ========================================
-# 19. Train baseline logistic regression
+# 18. Train baseline logistic regression
 # ========================================
 
 log_reg = LogisticRegression(
@@ -420,7 +386,7 @@ y_val_proba = log_reg.predict_proba(
 
 
 # ========================================
-# 20. Validation probability metrics
+# 19. Validation probability metrics
 # ========================================
 
 print("\n=== Logistic Regression Validation (2015) ===")
@@ -450,7 +416,7 @@ print(f"Mean predicted default: {y_val_proba.mean():.4f}")
 
 
 # ========================================
-# 21. Validation classification
+# 20. Validation classification
 # ========================================
 
 threshold = 0.15
@@ -479,7 +445,7 @@ print(
 
 
 # ========================================
-# 22. Save validation confusion matrix
+# 21. Save validation confusion matrix
 # ========================================
 
 fig, ax = plt.subplots(figsize=(8, 6))
@@ -558,7 +524,7 @@ plt.close(fig)
 
 
 # ========================================
-# 23. Validation threshold comparison
+# 22. Validation threshold comparison
 # ========================================
 
 thresholds = [
@@ -615,53 +581,9 @@ print(
 )
 
 
-# ========================================
-# 24. Validation calibration curve
-# ========================================
-
-fraction_of_positives, mean_predicted_value = calibration_curve(
-    y_val,
-    y_val_proba,
-    n_bins=10,
-    strategy="quantile"
-)
-
-fig, ax = plt.subplots(figsize=(8, 6))
-
-ax.plot(
-    mean_predicted_value,
-    fraction_of_positives,
-    marker="o",
-    label="Logistic Regression (2015)"
-)
-
-ax.plot(
-    [0, 1],
-    [0, 1],
-    linestyle="--",
-    color="gray",
-    label="Perfect Calibration"
-)
-
-ax.set_xlabel("Mean Predicted Default Probability")
-ax.set_ylabel("Observed Default Rate")
-ax.set_title("Calibration Curve - 2015 Validation")
-ax.legend()
-ax.grid(alpha=0.3)
-
-fig.tight_layout()
-
-fig.savefig(
-    FIGURES_DIR / "calibration_curve_2015.png",
-    dpi=300,
-    bbox_inches="tight"
-)
-
-plt.close(fig)
-
 
 # ========================================
-# 25. Logistic regression coefficients
+# 23. Logistic regression coefficients
 # ========================================
 
 feature_names = preprocessor.get_feature_names_out()
@@ -688,7 +610,7 @@ print(
 
 
 # ========================================
-# 26. Combine 2014 and 2015 for final fitting
+# 24. Combine 2014 and 2015 for final fitting
 # ========================================
 
 X_train_final = pd.concat(
@@ -706,7 +628,7 @@ print("\nFinal training shape:",
 
 
 # ========================================
-# 27. Fit final pipeline
+# 25. Fit final pipeline
 # ========================================
 
 final_pipeline = Pipeline(steps=[
@@ -728,7 +650,7 @@ print("\nFinal model training completed.")
 
 
 # ========================================
-# 28. Evaluate on 2016 test data
+# 26. Evaluate on 2016 test data
 # ========================================
 
 y_test_proba = final_pipeline.predict_proba(
@@ -762,7 +684,7 @@ print(f"Mean predicted default: {y_test_proba.mean():.4f}")
 
 
 # ========================================
-# 29. Final test classification at 15%
+# 27. Final test classification at 15%
 # ========================================
 
 final_threshold = 0.15
@@ -793,53 +715,9 @@ print(
 )
 
 
-# ========================================
-# 30. Final test calibration curve
-# ========================================
-
-fraction_of_positives, mean_predicted_value = calibration_curve(
-    y_test,
-    y_test_proba,
-    n_bins=10,
-    strategy="quantile"
-)
-
-fig, ax = plt.subplots(figsize=(8, 6))
-
-ax.plot(
-    mean_predicted_value,
-    fraction_of_positives,
-    marker="o",
-    label="Logistic Regression (2016)"
-)
-
-ax.plot(
-    [0, 1],
-    [0, 1],
-    linestyle="--",
-    color="gray",
-    label="Perfect Calibration"
-)
-
-ax.set_xlabel("Mean Predicted Default Probability")
-ax.set_ylabel("Observed Default Rate")
-ax.set_title("Calibration Curve - 2016 Test")
-ax.legend()
-ax.grid(alpha=0.3)
-
-fig.tight_layout()
-
-fig.savefig(
-    FIGURES_DIR / "calibration_curve_2016.png",
-    dpi=300,
-    bbox_inches="tight"
-)
-
-plt.close(fig)
-
 
 # ========================================
-# 31. Final consistency checks
+# 28. Final consistency checks
 # ========================================
 
 assert X_train_final.columns.equals(X_test.columns), (
@@ -861,7 +739,7 @@ print("\nFinal consistency checks passed.")
 
 
 # ========================================
-# 32. Save final model
+# 29. Save final model
 # ========================================
 
 joblib.dump(

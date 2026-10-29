@@ -7,6 +7,7 @@ kiwisolver==1.5.1
 matplotlib==3.11.2
 narwhals==2.27.1
 numpy==2.5.4
+nvidia-nccl-cu13==2.32.3
 packaging==26.3
 pandas==3.1.0
 pillow==13.0.0
